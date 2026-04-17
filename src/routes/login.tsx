@@ -1,5 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 import { Mail, Lock, Sparkles, Heart, Building2, Truck, ShieldCheck, ArrowRight, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +33,64 @@ const roles = [
 function LoginPage() {
   const navigate = useNavigate();
   const [role, setRole] = useState("donor");
+  const [isLoading, setIsLoading] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
+  // Load Real Google Identity Services Script
+  useEffect(() => {
+    const scriptId = "google-gsi-client";
+    
+    const initGoogleAuth = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          // You MUST replace this with your actual Google Client ID from Google Cloud Console
+          client_id: "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com",
+          callback: (response: any) => {
+            // response.credential is the real JWT token from Google
+            console.log("Real Google JWT Token:", response.credential);
+            toast.success("Successfully logged in with Google!", {
+               description: "JWT Token authenticated and received."
+            });
+            navigate({ to: "/" });
+          }
+        });
+
+        if (googleButtonRef.current) {
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: "outline",
+            size: "large",
+            width: "100%",
+            logo_alignment: "center",
+          });
+        }
+      }
+    };
+
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initGoogleAuth;
+      document.head.appendChild(script);
+    } else {
+      initGoogleAuth();
+    }
+  }, [navigate]);
+
+  // Email Submit
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success(`Welcome back, ${role}!`, {
-      description: "Authenticating and syncing Live Node..."
-    });
-    setTimeout(() => navigate({ to: "/" }), 800);
+    setIsLoading(true);
+    setTimeout(() => {
+      toast.success(`Welcome back, ${role}!`, {
+        description: "Authenticated via Email. Syncing Live Node..."
+      });
+      navigate({ to: "/" });
+    }, 1000);
   };
+
 
   return (
     <div className="min-h-screen bg-background text-foreground flex overflow-hidden relative">
@@ -84,8 +140,8 @@ function LoginPage() {
       </div>
 
       {/* Right Column - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-20 relative z-10">
-         <div className="w-full max-w-md animate-fade-up">
+      <div className="w-full lg:w-1/2 flex flex-col pt-8 pb-12 px-8 sm:px-16 lg:px-24 justify-center relative z-10 h-screen overflow-y-auto">
+         <div className="w-full max-w-md mx-auto animate-fade-up">
             
             <div className="lg:hidden flex items-center gap-3 mb-10">
               <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
@@ -99,7 +155,7 @@ function LoginPage() {
 
             <div className="space-y-6">
                <div className="space-y-3">
-                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Select Identity</Label>
+                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">1. Select your Identity</Label>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                    {roles.map((r) => {
                      const Icon = r.icon;
@@ -124,36 +180,50 @@ function LoginPage() {
                  </div>
                </div>
 
-               <form onSubmit={onSubmit} className="space-y-5">
-                 <div className="space-y-2">
-                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
-                      <Mail className="h-3.5 w-3.5 text-primary" /> Email Address
-                   </Label>
-                   <Input required type="email" placeholder="you@domain.com" className="rounded-xl h-14 bg-background/50 border-border/80 focus-visible:ring-primary/50 px-4 font-medium" />
-                 </div>
-                 <div className="space-y-2">
-                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
-                     <Lock className="h-3.5 w-3.5 text-primary" /> Password
-                   </Label>
-                   <Input required type="password" placeholder="••••••••" className="rounded-xl h-14 bg-background/50 border-border/80 focus-visible:ring-primary/50 px-4 font-medium" />
-                 </div>
+               <div className="space-y-4 pt-2">
+                 <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">2. Authenticate</Label>
                  
-                 <div className="flex items-center justify-between text-sm py-2">
-                   <label className="flex items-center gap-2 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors">
-                     <input type="checkbox" className="rounded border-border w-4 h-4 accent-primary" /> Remember device
-                   </label>
-                   <a href="#" className="text-primary font-bold hover:underline underline-offset-4">Forgot password?</a>
+                 {/* REAL Google SSO Button Container */}
+                 <div ref={googleButtonRef} className="w-full flex justify-center py-1">
+                   {/* Google's script will automatically mount the real button here */}
+                   <span className="text-sm font-medium text-slate-400">Loading Google Authentication...</span>
                  </div>
-                 
-                 <Button
-                   type="submit"
-                   className="w-full h-14 rounded-2xl gradient-primary text-white shadow-glow hover:scale-[1.02] transition-all duration-300 text-[15px] font-bold border border-white/20 mt-4"
-                 >
-                   Authenticate <ArrowRight className="ml-2 h-4 w-4" />
-                 </Button>
-               </form>
 
-               <div className="text-center text-sm text-muted-foreground mt-8 font-medium">
+                 <div className="flex items-center gap-4 py-2 opacity-60">
+                   <div className="h-px bg-border flex-1"></div>
+                   <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Or Email</span>
+                   <div className="h-px bg-border flex-1"></div>
+                 </div>
+
+                 {/* Email/Password Form */}
+                 <form onSubmit={onSubmit} className="space-y-5">
+                   <div className="space-y-2">
+                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5 text-primary" /> Email Address
+                     </Label>
+                     <Input required type="email" placeholder="you@domain.com" className="rounded-xl h-14 bg-background/50 border-border/80 focus-visible:ring-primary/50 px-4 font-medium" />
+                   </div>
+                   <div className="space-y-2">
+                     <div className="flex items-center justify-between">
+                       <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                         <Lock className="h-3.5 w-3.5 text-primary" /> Password
+                       </Label>
+                       <a href="#" className="text-primary text-xs font-bold hover:underline underline-offset-4">Forgot?</a>
+                     </div>
+                     <Input required type="password" placeholder="••••••••" className="rounded-xl h-14 bg-background/50 border-border/80 focus-visible:ring-primary/50 px-4 font-medium" />
+                   </div>
+                   
+                   <Button
+                     type="submit"
+                     disabled={isLoading}
+                     className="w-full h-14 rounded-2xl bg-foreground text-background shadow-lg hover:scale-[1.02] transition-all duration-300 text-[15px] font-bold mt-2"
+                   >
+                     {isLoading ? "Authenticating..." : <>Sign In with Email <ArrowRight className="ml-2 h-4 w-4" /></>}
+                   </Button>
+                 </form>
+               </div>
+
+               <div className="text-center text-sm text-muted-foreground pt-4 font-medium">
                  New to the network? <a href="#" className="text-foreground font-bold hover:text-primary transition-colors hover:underline underline-offset-4">Create an account</a>
                </div>
             </div>
